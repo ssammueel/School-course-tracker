@@ -6,7 +6,8 @@ const bcrypt = require("bcryptjs");
 // importing model
 const studentModel = require("./models/studentModel")
 const courseModel = require("./models/courseModel")
-const checkToken = require("./chectToken")
+const checkToken = require("./chectToken");
+const trackingModel = require("./models/trackingModel")
 
 const app = express();
 // conecting to db
@@ -59,12 +60,12 @@ app.post("/login",async (req,res)=>{
                 if(correct == true){
                     jwt.sign({email:studentCred.email}, "studentApp", (err, token)=>{
                         if(!err){
-                            res.send({message:"log in sucessful", token:token})
+                            res.send({message:"log in sucessful", token:token})// user should not see his token
                         }
                     })
                 }
                 else{
-                    res.send({message:"wrong password sor"})
+                    res.send({message:"wrong password please attempt again"})
                 }
             })
         }else
@@ -74,7 +75,7 @@ app.post("/login",async (req,res)=>{
     }
     catch(err){
         console.log(err);
-        res.send({message:"you gor a problem in log-in"})
+        res.send({message:"you got a problem in log-in"})
     }
     
 })
@@ -96,17 +97,49 @@ app.get("/courses", checkToken  , async(req,res)=>{
 })
 
 // search courses by code
-app.get("/courses/:code",checkToken,async (req,res)=>{
-    try{
-        let courses = await courseModel.find({code:req.params.code})
-        res.send(courses)
+app.get("/courses/:code", checkToken, async (req, res) => {
+    try {
+        let courses = await courseModel.find({ code: { $regex: req.params.code, $options: "i" } });
+        if (courses.length !== 0) {
+            res.send(courses);
+        } else {
+            res.send("Course not found");
+        }
+    } catch (err) {
+        console.log(err);
+        res.send({ message: "There was an error" });
     }
-    catch(err){
+});
+
+//tracking all courses
+
+app.post("/track",checkToken,async (req,res)=>{
+    let data = req.body;
+
+    try{
+        let adde = await trackingModel.create(data)
+        res.send({message:"data sucessful addes", add:adde})
+    }
+    catch(err)
+    {
         console.log(err)
-        res.send({message:"there was an error"})
+        res.send("problem in creating adding data to model")
     }
 })
 
+// tracking dourses taken by a student 
+app.get("/track/:studentid",checkToken ,async (req,res)=>{
+    let studentid = req.params.studentid
+
+    try {
+        let data = await trackingModel.find({studentId:studentid}).populate("studentId").populate("courseId")
+        res.send(data)
+    }
+    catch (err) {
+        console.log(err)
+        res.send("some issue in tracking the user id")
+    }
+})
 
 
 app.listen(8000, ()=>{
